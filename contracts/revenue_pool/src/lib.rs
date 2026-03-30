@@ -106,7 +106,9 @@ impl RevenuePool {
 
     /// Distribute USDC from this contract to a developer wallet.
     ///
-    /// Only the admin may call. Transfers USDC from this contract to `to`.
+    /// Only the admin may call. Retrieves the admin from instance storage, verifies
+    /// authorization via `admin.require_auth()`, checks the contract's USDC balance,
+    /// then transfers `amount` from `env.current_contract_address()` to `to`.
     ///
     /// # Arguments
     /// * `env` - The environment running the contract.
@@ -115,13 +117,14 @@ impl RevenuePool {
     /// * `amount` - Amount in token base units (e.g. USDC stroops).
     ///
     /// # Panics
-    /// * If the caller is not the current admin (`"unauthorized: caller is not admin"`).
-    /// * If the amount is zero or negative (`"amount must be positive"`).
-    /// * If the revenue pool has not been initialized.
-    /// * If the revenue pool holds less than the requested amount (`"insufficient USDC balance"`).
+    /// * `"unauthorized: caller is not admin"` – caller is not the stored admin.
+    /// * `"Amount must be positive"` – amount is zero or negative.
+    /// * `"Insufficient contract balance"` – contract holds less USDC than requested.
     ///
     /// # Events
-    /// Emits a `distribute` event with `to` as a topic and `amount` as data.
+    /// Emits a `distribute` event:
+    /// - topics: `(Symbol("distribute"), to: Address)`
+    /// - data:   `amount: i128`
     pub fn distribute(env: Env, caller: Address, to: Address, amount: i128) {
         caller.require_auth();
         let admin = Self::get_admin(env.clone());
@@ -129,7 +132,7 @@ impl RevenuePool {
             panic!("unauthorized: caller is not admin");
         }
         if amount <= 0 {
-            panic!("amount must be positive");
+            panic!("Amount must be positive");
         }
 
         let usdc_address: Address = env
@@ -141,7 +144,7 @@ impl RevenuePool {
 
         let contract_address = env.current_contract_address();
         if usdc.balance(&contract_address) < amount {
-            panic!("insufficient USDC balance");
+            panic!("Insufficient contract balance");
         }
 
         usdc.transfer(&contract_address, &to, &amount);

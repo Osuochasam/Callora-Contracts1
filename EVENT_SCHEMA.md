@@ -177,3 +177,85 @@ Emitted by `receive_payment()` **only** when `to_pool = false`. Follows the `pay
 | 0.1.0   | Initial settlement events: `payment_received`, `balance_credited` |
 
 > If `PaymentReceivedEvent` or `BalanceCreditedEvent` structs gain new fields in future versions, a new row will be added here with the crate semver and a description of the added/changed fields.
+
+---
+
+## Contract: Callora Revenue Pool (`callora-revenue-pool`)
+
+### `init`
+
+Emitted when the revenue pool is initialized via `init(admin, usdc_token)`.
+
+| Field   | Location | Type    | Description                        |
+|---------|----------|---------|------------------------------------|
+| topic 0 | topics   | Symbol  | `"init"`                           |
+| topic 1 | topics   | Address | `admin` — the initial admin address |
+| data    | data     | Address | `usdc_token` — USDC contract address |
+
+---
+
+### `distribute`
+
+Emitted by `distribute(caller, to, amount)` after a successful USDC transfer from the contract to a recipient.
+
+| Field   | Location | Type    | Description                                              |
+|---------|----------|---------|----------------------------------------------------------|
+| topic 0 | topics   | Symbol  | `"distribute"`                                           |
+| topic 1 | topics   | Address | `to` — the recipient address that received the USDC      |
+| data    | data     | i128    | `amount` — the amount transferred in USDC base units     |
+
+**Access control:** only the stored admin may trigger this event.
+
+**Pre-conditions checked before emit:**
+- `amount > 0` (panics `"Amount must be positive"` otherwise)
+- `contract_usdc_balance >= amount` (panics `"Insufficient contract balance"` otherwise)
+
+**Example:**
+
+```json
+{
+  "topics": ["distribute", "GRECIPIENT..."],
+  "data": 5000000
+}
+```
+
+---
+
+### `batch_distribute`
+
+Emitted once per payment entry by `batch_distribute(caller, payments)`. Each individual transfer emits its own event.
+
+| Field   | Location | Type    | Description                                              |
+|---------|----------|---------|----------------------------------------------------------|
+| topic 0 | topics   | Symbol  | `"batch_distribute"`                                     |
+| topic 1 | topics   | Address | `to` — the recipient for this payment entry              |
+| data    | data     | i128    | `amount` — the amount for this entry in USDC base units  |
+
+**Example (one entry in a batch):**
+
+```json
+{
+  "topics": ["batch_distribute", "GDEV..."],
+  "data": 3000000
+}
+```
+
+---
+
+### `receive_payment`
+
+Emitted by `receive_payment(caller, amount, from_vault)` for logging inbound payment acknowledgements.
+
+| Field        | Location | Type    | Description                                      |
+|--------------|----------|---------|--------------------------------------------------|
+| topic 0      | topics   | Symbol  | `"receive_payment"`                              |
+| topic 1      | topics   | Address | `caller` — the admin address logging the payment |
+| data tuple 0 | data     | i128    | `amount` — the logged amount                     |
+| data tuple 1 | data     | bool    | `from_vault` — `true` if sourced from the vault  |
+
+### Version notes
+
+| Version | Change |
+|---------|--------|
+| 0.1.0   | Initial revenue pool events: `init`, `distribute`, `batch_distribute`, `receive_payment` |
+
