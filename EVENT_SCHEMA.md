@@ -91,10 +91,56 @@ Emitted when existing metadata is updated via `update_metadata(offering_id, meta
 
 ---
 
+---
+
+### `pause`
+
+Emitted when the vault is paused by the admin.
+
+| Field   | Location | Type   | Description   |
+|---------|----------|--------|---------------|
+| topic 0 | topics   | Symbol | `"pause"`     |
+| topic 1 | topics   | Address| admin         |
+### `ownership_nominated`
+| Field   | Location | Type   | Description   |
+|---------|----------|--------|---------------|
+| topic 0 | topics   | Symbol | `"ownership_nominated"` |
+| topic 1 | topics   | Address| current owner |
+| topic 2 | topics   | Address| nominee       |
+| data    | data     | ()     | empty         |
+
+---
+
+### `unpause`
+
+Emitted when the vault is unpaused by the admin.
+
+| Field   | Location | Type   | Description   |
+|---------|----------|--------|---------------|
+| topic 0 | topics   | Symbol | `"unpause"`   |
+| topic 1 | topics   | Address| admin         |
+### `ownership_accepted`
+| Field   | Location | Type   | Description   |
+|---------|----------|--------|---------------|
+| topic 0 | topics   | Symbol | `"ownership_accepted"` |
+| topic 1 | topics   | Address| old owner     |
+| topic 2 | topics   | Address| new owner     |
+| data    | data     | ()     | empty         |
+
+---
+
 ## Not yet implemented
 
 - **OwnershipTransfer**: not present in current vault; would list old_owner, new_owner.
-- **Pause**: not present in current vault; would indicate pause state change.
+### `admin_nominated`
+| Field   | Location | Type   | Description   |
+|---------|----------|--------|---------------|
+| topic 0 | topics   | Symbol | `"admin_nominated"` |
+| topic 1 | topics   | Address| current admin |
+| topic 2 | topics   | Address| nominee       |
+| data    | data     | ()     | empty         |
+
+
 
 ---
 
@@ -170,92 +216,87 @@ Emitted by `receive_payment()` **only** when `to_pool = false`. Follows the `pay
 
 > **Note:** `balance_credited` is never emitted when `to_pool = true`. Indexers tracking developer earnings should subscribe to this event; indexers tracking total protocol revenue should subscribe to `payment_received` with `to_pool = true`.
 
-### Version notes
-
-| Version | Change |
-|---------|--------|
-| 0.1.0   | Initial settlement events: `payment_received`, `balance_credited` |
-
-> If `PaymentReceivedEvent` or `BalanceCreditedEvent` structs gain new fields in future versions, a new row will be added here with the crate semver and a description of the added/changed fields.
-
 ---
 
-## Contract: Callora Revenue Pool (`callora-revenue-pool`)
+## Contract: Callora Revenue Pool (`callora-revenue-pool` v0.0.1)
 
 ### `init`
 
-Emitted when the revenue pool is initialized via `init(admin, usdc_token)`.
+Emitted when the revenue pool is initialized.
 
-| Field   | Location | Type    | Description                        |
-|---------|----------|---------|------------------------------------|
-| topic 0 | topics   | Symbol  | `"init"`                           |
-| topic 1 | topics   | Address | `admin` — the initial admin address |
-| data    | data     | Address | `usdc_token` — USDC contract address |
-
----
-
-### `distribute`
-
-Emitted by `distribute(caller, to, amount)` after a successful USDC transfer from the contract to a recipient.
-
-| Field   | Location | Type    | Description                                              |
-|---------|----------|---------|----------------------------------------------------------|
-| topic 0 | topics   | Symbol  | `"distribute"`                                           |
-| topic 1 | topics   | Address | `to` — the recipient address that received the USDC      |
-| data    | data     | i128    | `amount` — the amount transferred in USDC base units     |
-
-**Access control:** only the stored admin may trigger this event.
-
-**Pre-conditions checked before emit:**
-- `amount > 0` (panics `"Amount must be positive"` otherwise)
-- `contract_usdc_balance >= amount` (panics `"Insufficient contract balance"` otherwise)
-
-**Example:**
-
-```json
-{
-  "topics": ["distribute", "GRECIPIENT..."],
-  "data": 5000000
-}
-```
-
----
-
-### `batch_distribute`
-
-Emitted once per payment entry by `batch_distribute(caller, payments)`. Each individual transfer emits its own event.
-
-| Field   | Location | Type    | Description                                              |
-|---------|----------|---------|----------------------------------------------------------|
-| topic 0 | topics   | Symbol  | `"batch_distribute"`                                     |
-| topic 1 | topics   | Address | `to` — the recipient for this payment entry              |
-| data    | data     | i128    | `amount` — the amount for this entry in USDC base units  |
-
-**Example (one entry in a batch):**
-
-```json
-{
-  "topics": ["batch_distribute", "GDEV..."],
-  "data": 3000000
-}
-```
+| Field   | Location | Type    | Description                                      |
+|---------|----------|---------|--------------------------------------------------|
+| topic 0 | topics   | Symbol  | `"init"`                                         |
+| topic 1 | topics   | Address | `admin` — initial admin address                 |
+| data    | data     | Address | `usdc_token` — token contract address used      |
 
 ---
 
 ### `receive_payment`
 
-Emitted by `receive_payment(caller, amount, from_vault)` for logging inbound payment acknowledgements.
+Emitted by `receive_payment(caller, amount, from_vault)`.
 
-| Field        | Location | Type    | Description                                      |
-|--------------|----------|---------|--------------------------------------------------|
-| topic 0      | topics   | Symbol  | `"receive_payment"`                              |
-| topic 1      | topics   | Address | `caller` — the admin address logging the payment |
-| data tuple 0 | data     | i128    | `amount` — the logged amount                     |
-| data tuple 1 | data     | bool    | `from_vault` — `true` if sourced from the vault  |
+| Field   | Location | Type    | Description                                      |
+|---------|----------|---------|--------------------------------------------------|
+| topic 0 | topics   | Symbol  | `"receive_payment"`                              |
+| topic 1 | topics   | Address | `caller` — typically admin or vault              |
+| data    | data     | (i128, bool) | (amount, from_vault)                        |
+
+---
+
+### `distribute`
+
+Emitted when USDC is distributed to a single developer.
+
+| Field   | Location | Type    | Description                                      |
+|---------|----------|---------|--------------------------------------------------|
+| topic 0 | topics   | Symbol  | `"distribute"`                                   |
+| topic 1 | topics   | Address | `to` — developer address                        |
+| data    | data     | i128    | `amount` distributed                             |
+
+---
+
+### `batch_distribute`
+
+Emitted for every individual distribution during a `batch_distribute(payments)` call.
+
+| Field   | Location | Type    | Description                                      |
+|---------|----------|---------|--------------------------------------------------|
+| topic 0 | topics   | Symbol  | `"batch_distribute"`                             |
+| topic 1 | topics   | Address | `to` — developer address                        |
+| data    | data     | i128    | `amount` distributed                             |
+
+---
+
+### `admin_transfer_started`
+
+Emitted when the current admin nominates a successor.
+
+| Field   | Location | Type    | Description                                      |
+|---------|----------|---------|--------------------------------------------------|
+| topic 0 | topics   | Symbol  | `"admin_transfer_started"`                       |
+| topic 1 | topics   | Address | `current_admin` — the nominator                 |
+| data    | data     | Address | `pending_admin` — the nominee who must accept   |
+
+---
+
+### `admin_transfer_completed`
+
+Emitted when the nominee accepts the admin role.
+
+| Field   | Location | Type    | Description                                      |
+|---------|----------|---------|--------------------------------------------------|
+| topic 0 | topics   | Symbol  | `"admin_transfer_completed"`                     |
+| topic 1 | topics   | Address | `new_admin` — the nominee who is now admin      |
+| data    | data     | ()      | empty                                            |
+
+---
 
 ### Version notes
 
 | Version | Change |
 |---------|--------|
-| 0.1.0   | Initial revenue pool events: `init`, `distribute`, `batch_distribute`, `receive_payment` |
+| 0.1.0   | Initial settlement events: `payment_received`, `balance_credited` |
+| 0.0.1   | Added Revenue Pool events and admin rotation audit trail events |
 
+> If events structs gain new fields in future versions, a new row will be added here with the crate semver and a description of the added/changed fields.
